@@ -20,8 +20,9 @@ class MyBot(commands.Bot):
 
     async def setup_hook(self):
         try:
+            # บังคับซิงค์คำสั่งเพื่อให้ Discord อัปเดตการเช็กสิทธิ์ใหม่
             synced = await self.tree.sync()
-            print(f"✅ ซิงค์คำสั่ง Slash เรียบร้อย!")
+            print(f"✅ ซิงค์คำสั่ง Slash สำเร็จ! (พบ {len(synced)} คำสั่ง)")
         except Exception as e:
             print(f"❌ Sync Error: {e}")
 
@@ -30,26 +31,29 @@ random_trigger_channel_id = None
 
 @bot.event
 async def on_ready():
-    print(f"✅ บอท {bot.user} พร้อมทำงาน!")
+    print(f"✅ บอท {bot.user} พร้อมรบแล้ว!")
+    print(f"ระบบ: เช็กสิทธิ์ Administrator เปิดใช้งาน")
     print("---------------------------------")
 
-# --- 2. คำสั่งสร้างห้องสุ่ม (เช็กสิทธิ์ในตัวโค้ด) ---
+# --- 2. คำสั่งสร้างห้องสุ่ม (ล็อคเฉพาะแอดมิน) ---
 @bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้าย (เฉพาะแอดมิน)")
 async def create_room(interaction: discord.Interaction):
     global random_trigger_channel_id
     
-    # 🚨 เช็กสิทธิ์: ถ้าคนกดไม่ใช่แอดมิน ให้ส่งข้อความเตือน
+    # 🚨 เช็กสิทธิ์แบบละเอียด: ถ้าไม่ใช่ Administrator ให้หยุดทันที
     if not interaction.user.guild_permissions.administrator:
-        # ephemeral=True คือส่งข้อความที่เห็นแค่คนกดคนเดียว จะได้ไม่รกแชท
-        await interaction.response.send_message("❌ ขออภัยครับ คุณไม่สามารถใช้คำสั่งนี้ได้ (เฉพาะแอดมินเท่านั้น)", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ ขออภัยครับ คุณไม่สามารถใช้คำสั่งนี้ได้ (เฉพาะผู้ดูแลระบบที่มีสิทธิ์แอดมินเท่านั้น)", 
+            ephemeral=True # คนอื่นจะไม่เห็นข้อความนี้
+        )
         return
 
-    # --- ส่วนนี้จะทำงานเฉพาะ "แอดมิน" เท่านั้น ---
+    # --- ส่วนที่เหลือนี้จะมีแค่แอดมินเท่านั้นที่ผ่านเข้ามาได้ ---
     try:
         channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
         random_trigger_channel_id = channel.id
-        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จแล้ว!", ephemeral=True)
-        print(f"📢 แอดมิน {interaction.user.name} สร้างห้องสุ่มใหม่")
+        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ! พร้อมใช้งานแล้ว", ephemeral=True)
+        print(f"📢 แอดมิน {interaction.user.name} ได้สร้างห้องสุ่มใหม่")
     except Exception as e:
         await interaction.response.send_message(f"❌ เกิดข้อผิดพลาด: {e}", ephemeral=True)
 
@@ -70,8 +74,12 @@ async def on_voice_state_update(member, before, after):
                 await member.move_to(target)
                 message = f"ผู้ใช้บัญชีชื่อ **{member.name}** นี้สุ่มห้องมา"
                 await target.send(message)
+                print(f"🎲 ย้ายคุณ {member.name} ไปยัง {target.name}")
             except Exception as e:
                 print(f"❌ ย้ายไม่ได้: {e}")
 
+# --- 4. เริ่มทำงานบอท ---
 if TOKEN:
     bot.run(TOKEN)
+else:
+    print("❌ ERROR: ไม่พบ DISCORD_TOKEN เช็กใน Render หรือ .env ด่วน!")
