@@ -38,6 +38,7 @@ async def on_ready():
 
 # --- 2. คำสั่งสร้างห้องสุ่ม (Slash Command) ---
 @bot.tree.command(name="create_room", description="สร้างห้องสำหรับกดเพื่อสุ่มย้าย")
+@app_commands.default_permissions(administrator=True) # <--- เพิ่มบรรทัดนี้เพื่อล็อคให้คนทั่วไปไม่เห็นคำสั่ง
 async def create_room(interaction: discord.Interaction):
     global random_trigger_channel_id
     try:
@@ -70,7 +71,6 @@ async def on_voice_state_update(member, before, after):
                 await member.move_to(target)
                 
                 # ส่งข้อความไปยังแชทของห้องเสียงปลายทาง
-                # ใช้ member.name เพื่อดึงชื่อบัญชีดิสคอร์ดตามที่ขอมาครับ
                 message = f"ผู้ใช้บัญชีชื่อ **{member.name}** นี้สุ่มห้องมา"
                 await target.send(message)
                 
@@ -84,4 +84,4 @@ async def on_voice_state_update(member, before, after):
 if TOKEN:
     bot.run(TOKEN)
 else:
-    print("❌ ERROR: หา TOKEN ไม่เจอ! ตรวจสอบไฟล์ .env ของคุณ (อย่าลืมกด Save ไฟล์ด้วย)")
+    print("❌ ERROR: หา TOKEN ไม่เจอ! ตรวจสอบไฟล์ .env หรือ Environment Variable ใน Render")
