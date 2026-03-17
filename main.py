@@ -43,7 +43,6 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 normal_trigger_id = None 
-main_log_channel = None # ตัวแปรเก็บห้องแชทสำหรับแจ้งเตือนของ main
 
 @bot.event
 async def on_ready():
@@ -51,23 +50,22 @@ async def on_ready():
 
 @bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้ายปกติ")
 async def create_room(interaction: discord.Interaction):
-    global normal_trigger_id, main_log_channel
+    global normal_trigger_id
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ เฉพาะแอดมินเท่านั้น", ephemeral=True)
         return
     try:
         channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
         normal_trigger_id = channel.id
-        main_log_channel = interaction.channel # จำห้องที่ใช้คำสั่งไว้แจ้งเตือน
-        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ! (แจ้งเตือนที่นี่)")
+        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!")
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    global normal_trigger_id, main_log_channel
+    global normal_trigger_id
     
-    # ส่งไปให้ main2 ทำงาน
+    # ส่งไปให้ main2
     await main2.handle_online_random(member, after, normal_trigger_id)
     
     # ระบบสุ่มทั่วไป (Main)
@@ -85,13 +83,8 @@ async def on_voice_state_update(member, before, after):
             target = random.choice(available_channels)
             try:
                 await member.move_to(target)
-                if main_log_channel:
-                    await main_log_channel.send(f"🎲 ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มมาครับ (ลงห้อง: {target.name})")
+                # ค้นหาห้องแชทในหมวดหมู่เดียวกันเพื่อแจ้งเตือน
+                text_channel = next((tc for tc in member.guild.text_channels if tc.category == after.channel.category), None)
+                if text_channel:
+                    await text_channel.send(f"🎲 ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มห้องมาครับ (ลงที่: {target.name})")
             except: pass
-        else:
-            if main_log_channel:
-                await main_log_channel.send(f"⚠️ **{member.display_name}** สุ่มไม่สำเร็จเนื่องจากไม่มีห้องว่างที่เข้าได้ครับ")
-
-if TOKEN:
-    keep_alive()
-    bot.run(TOKEN)

@@ -3,25 +3,23 @@ import random
 from discord import app_commands
 
 online_trigger_id = None
-online_log_channel = None # ตัวแปรเก็บห้องแชทสำหรับแจ้งเตือนของ main2
 
 def setup_online_commands(tree: app_commands.CommandTree):
     @tree.command(name="create_room_online", description="สร้างห้องสุ่มหาเพื่อนที่มีคนอยู่")
     async def create_room_online(interaction: discord.Interaction):
-        global online_trigger_id, online_log_channel
+        global online_trigger_id
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("❌ เฉพาะแอดมินเท่านั้น", ephemeral=True)
             return
         try:
             channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มไปหาเพื่อน")
             online_trigger_id = channel.id
-            online_log_channel = interaction.channel # จำห้องที่ใช้คำสั่งไว้แจ้งเตือน
-            await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ! (แจ้งเตือนที่นี่)")
+            await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!")
         except Exception as e:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 async def handle_online_random(member, after, normal_id):
-    global online_trigger_id, online_log_channel
+    global online_trigger_id
     
     if after.channel and after.channel.id == online_trigger_id and not member.bot:
         available = []
@@ -37,9 +35,12 @@ async def handle_online_random(member, after, normal_id):
             target = random.choice(available)
             try:
                 await member.move_to(target)
-                if online_log_channel:
-                    await online_log_channel.send(f"👥 ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มมาครับ (ไปหาเพื่อนในห้อง: {target.name})")
+                # ค้นหาห้องแชทในหมวดหมู่เดียวกันเพื่อแจ้งเตือน
+                text_channel = next((tc for tc in member.guild.text_channels if tc.category == after.channel.category), None)
+                if text_channel:
+                    await text_channel.send(f"👥 ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มห้องมาครับ (สุ่มไปหาเพื่อนที่: {target.name})")
             except: pass
         else:
-            if online_log_channel:
-                await online_log_channel.send(f"⚠️ **{member.display_name}** ไม่พบห้องที่มีคนออนไลน์ให้สุ่มไปหาครับ")
+            text_channel = next((tc for tc in member.guild.text_channels if tc.category == after.channel.category), None)
+            if text_channel:
+                await text_channel.send(f"⚠️ **{member.display_name}** ไม่พบห้องที่มีคนออนไลน์ให้สุ่มไปหาครับ")
