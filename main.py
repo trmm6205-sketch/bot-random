@@ -37,7 +37,7 @@ class MyBot(commands.Bot):
         main2.setup_online_commands(self.tree)
         try:
             await self.tree.sync()
-            print("✅ Sync Commands Success!")
+            print("✅ Sync Success!")
         except Exception as e:
             print(f"❌ Sync Error: {e}")
 
@@ -57,6 +57,7 @@ async def create_room(interaction: discord.Interaction):
     try:
         channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
         normal_trigger_id = channel.id
+        # แจ้งเตือนแค่ตอนสร้างห้องครั้งเดียว
         await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
@@ -65,10 +66,10 @@ async def create_room(interaction: discord.Interaction):
 async def on_voice_state_update(member, before, after):
     global normal_trigger_id
     
-    # ส่งต่อให้ระบบสุ่มหาเพื่อน (main2)
+    # ส่งต่อระบบสุ่มหาเพื่อน (main2)
     await main2.handle_online_random(member, after, normal_trigger_id)
     
-    # ระบบสุ่มทั่วไป (Main)
+    # ระบบสุ่มทั่วไป
     if after.channel and after.channel.id == normal_trigger_id and not member.bot:
         available_channels = []
         for vc in member.guild.voice_channels:
@@ -83,7 +84,7 @@ async def on_voice_state_update(member, before, after):
             target = random.choice(available_channels)
             try:
                 await member.move_to(target)
-                # 📢 บังคับส่งข้อความลงในแชทของห้องเสียง "ปลายทาง" เท่านั้น
+                # 📢 เขียนลงแชทช่องที่เราสุ่มได้เท่านั้น
                 await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มห้องมาครับ")
             except: pass
 

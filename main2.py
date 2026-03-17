@@ -35,11 +35,10 @@ async def handle_online_random(member, after, normal_id):
             target = random.choice(available)
             try:
                 await member.move_to(target)
-                # 📢 บังคับส่งข้อความลงในแชทของห้องเสียง "ปลายทาง" เท่านั้น
+                # 📢 เขียนลงแชทช่องที่เราสุ่มได้เท่านั้น
                 await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มหาเพื่อนมาครับ")
             except: pass
         else:
-            # ถ้าหาไม่เจอ ให้พิมพ์บอกในห้อง "สุ่มไปหาเพื่อน"
             try:
                 await after.channel.send(f"⚠️ **{member.display_name}** ไม่พบห้องที่มีคนออนไลน์ครับ")
             except: pass
