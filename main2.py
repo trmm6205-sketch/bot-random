@@ -42,3 +42,4 @@ async def handle_online_random(member, after, normal_id):
             try:
                 await after.channel.send(f"⚠️ **{member.display_name}** ไม่พบห้องที่มีคนออนไลน์ครับ")
             except: pass
+            
