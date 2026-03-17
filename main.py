@@ -1,14 +1,14 @@
 import discord
 import random
 import os
-import main2  # <--- จุดที่ 1: ดึงความสามารถจากไฟล์ main2.py
+import main2
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- 1. ระบบ Keep Alive สำหรับ Render ---
+# --- 1. ระบบ Keep Alive ---
 app = Flask('')
 
 @app.route('/')
@@ -46,52 +46,49 @@ class MyBot(commands.Bot):
 bot = MyBot()
 random_trigger_channel_id = None 
 
+# --- 3. คำสั่งต่างๆ ---
 @bot.event
 async def on_ready():
-    print(f"✅ บอท {bot.user} ออนไลน์ในเขมรคลับแล้ว!")
-    print("---------------------------------")
+    print(f"✅ บอท {bot.user} ออนไลน์แล้ว!")
 
-# --- 3. คำสั่งสร้างห้องสุ่มปกติ (ล็อคแอดมิน) ---
-@bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้ายปกติ (เฉพาะแอดมินเท่านั้น)")
+@bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้ายปกติ")
 async def create_room(interaction: discord.Interaction):
     global random_trigger_channel_id
     if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ เฉพาะผู้ดูแลระบบที่มีสิทธิ์แอดมินเท่านั้น", ephemeral=True)
+        await interaction.response.send_message("❌ เฉพาะแอดมินเท่านั้น", ephemeral=True)
         return
+    channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
+    random_trigger_channel_id = channel.id
+    await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
 
-    try:
-        channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
-        random_trigger_channel_id = channel.id
-        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
-    except Exception as e:
-        await interaction.response.send_message(f"❌ เกิดข้อผิดพลาด: {e}", ephemeral=True)
-
-# --- จุดที่ 2: เพิ่มคำสั่งสร้างห้องสุ่มหาเพื่อน (เรียกใช้จาก main2) ---
-@bot.tree.command(name="create_room_online", description="สร้างห้องสุ่มหาเพื่อนที่มีคนอยู่ (เฉพาะแอดมิน)")
+@bot.tree.command(name="create_room_online", description="สร้างห้องสุ่มหาเพื่อนที่มีคนอยู่")
 async def create_room_online(interaction: discord.Interaction):
     await main2.create_online_room_logic(interaction)
 
-# --- 4. ระบบจัดการการย้าย (on_voice_state_update) ---
+# --- 4. ระบบจัดการการย้าย ---
 @bot.event
 async def on_voice_state_update(member, before, after):
     global random_trigger_channel_id
     
-    # จุดที่ 3: ส่งข้อมูลไปให้ main2.py ตรวจสอบเงื่อนไข "สุ่มหาเพื่อน"
+    # ส่งให้ main2 จัดการก่อน
     await main2.handle_online_random(member, after, random_trigger_channel_id)
     
-    # ระบบสุ่มปกติเดิมของนาย
+    # ระบบสุ่มปกติ
     if after.channel and after.channel.id == random_trigger_channel_id and not member.bot:
         all_channels = [
             vc for vc in member.guild.voice_channels 
             if vc.id != random_trigger_channel_id 
-            and vc.id != main2.random_online_channel_id # ไม่ย้ายไปห้องสุ่มของ main2
+            and vc.id != main2.random_online_channel_id
             and (vc.user_limit == 0 or len(vc.members) < vc.user_limit)
         ]
-        
         if all_channels:
             target = random.choice(all_channels)
-            try: # <--- ต้องตรงกับแนว target
-                await member.move_to(target) # <--- ต้องเยื้องเข้าไปจาก try
+            try:
+                await member.move_to(target)
                 await target.send(f"ผู้ใช้บัญชีชื่อ **{member.name}** สุ่มห้องลงมาที่นี่ครับ")
-            except Exception as e:
-                print(f"❌ ไม่สามารถย้ายได้: {e}")
+            except:
+                pass
+
+if TOKEN:
+    keep_alive()
+    bot.run(TOKEN)
