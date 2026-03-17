@@ -27,7 +27,6 @@ async def handle_online_random(member, after, normal_id):
             if vc.id not in [normal_id, online_trigger_id] and len(vc.members) > 0:
                 user_perms = vc.permissions_for(member)
                 bot_perms = vc.permissions_for(member.guild.me)
-
                 if user_perms.view_channel and user_perms.connect and bot_perms.view_channel:
                     if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
                         available.append(vc)
@@ -36,13 +35,11 @@ async def handle_online_random(member, after, normal_id):
             target = random.choice(available)
             try:
                 await member.move_to(target)
-                # 📢 ส่งข้อความเข้าแชทของห้องเสียงที่สุ่มได้ (Voice Chat)
-                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** สุ่มหาเพื่อนและลงมาที่นี่ครับ")
-            except:
-                pass
+                # 📢 บังคับส่งข้อความลงในแชทของห้องเสียง "ปลายทาง" เท่านั้น
+                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มหาเพื่อนมาครับ")
+            except: pass
         else:
+            # ถ้าหาไม่เจอ ให้พิมพ์บอกในห้อง "สุ่มไปหาเพื่อน"
             try:
-                # ถ้าหาไม่เจอ บอกในแชทห้องต้นทาง
                 await after.channel.send(f"⚠️ **{member.display_name}** ไม่พบห้องที่มีคนออนไลน์ครับ")
-            except:
-                pass
+            except: pass

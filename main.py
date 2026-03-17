@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- ระบบ Keep Alive สำหรับ Render ---
+# --- ระบบ Keep Alive ---
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is Online!"
@@ -21,7 +21,6 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- ตั้งค่าบอท ---
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -38,7 +37,7 @@ class MyBot(commands.Bot):
         main2.setup_online_commands(self.tree)
         try:
             await self.tree.sync()
-            print("✅ ซิงค์คำสั่งสำเร็จ!")
+            print("✅ Sync Commands Success!")
         except Exception as e:
             print(f"❌ Sync Error: {e}")
 
@@ -69,14 +68,13 @@ async def on_voice_state_update(member, before, after):
     # ส่งต่อให้ระบบสุ่มหาเพื่อน (main2)
     await main2.handle_online_random(member, after, normal_trigger_id)
     
-    # ระบบสุ่มทั่วไป
+    # ระบบสุ่มทั่วไป (Main)
     if after.channel and after.channel.id == normal_trigger_id and not member.bot:
         available_channels = []
         for vc in member.guild.voice_channels:
             if vc.id not in [normal_trigger_id, main2.online_trigger_id]:
                 user_perms = vc.permissions_for(member)
                 bot_perms = vc.permissions_for(member.guild.me)
-
                 if user_perms.view_channel and user_perms.connect and bot_perms.view_channel:
                     if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
                         available_channels.append(vc)
@@ -85,10 +83,9 @@ async def on_voice_state_update(member, before, after):
             target = random.choice(available_channels)
             try:
                 await member.move_to(target)
-                # 📢 ส่งข้อความเข้าแชทของห้องเสียงที่สุ่มได้ (Voice Chat)
-                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** สุ่มห้องลงมาที่นี่ครับ")
-            except:
-                pass
+                # 📢 บังคับส่งข้อความลงในแชทของห้องเสียง "ปลายทาง" เท่านั้น
+                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มห้องมาครับ")
+            except: pass
 
 if TOKEN:
     keep_alive()
