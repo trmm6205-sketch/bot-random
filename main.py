@@ -1,14 +1,14 @@
 import discord
 import random
 import os
-import main2  # ต้องมีบรรทัดนี้เพื่อดึงไฟล์ที่สองมาใช้
+import main2
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- 1. ระบบ Keep Alive (สำหรับ Render) ---
+# --- ระบบ Keep Alive สำหรับ Render ---
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is Online!"
@@ -21,7 +21,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- 2. ตั้งค่าบอท ---
+# --- ตั้งค่าบอท ---
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -35,11 +35,10 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # โหลดคำสั่ง Slash Command จาก main2
         main2.setup_online_commands(self.tree)
         try:
-            synced = await self.tree.sync()
-            print(f"✅ ซิงค์คำสั่งสำเร็จ! (พบ {len(synced)} คำสั่ง)")
+            await self.tree.sync()
+            print("✅ ซิงค์คำสั่ง Slash Commands สำเร็จ!")
         except Exception as e:
             print(f"❌ Sync Error: {e}")
 
@@ -50,7 +49,6 @@ normal_trigger_id = None
 async def on_ready():
     print(f"✅ บอท {bot.user} พร้อมลุยในเขมรคลับแล้ว!")
 
-# --- 3. คำสั่งสร้างห้องสุ่มทั่วไป (Main) ---
 @bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้ายปกติ")
 async def create_room(interaction: discord.Interaction):
     global normal_trigger_id
@@ -64,29 +62,33 @@ async def create_room(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message(f"❌ สร้างไม่สำเร็จ: {e}", ephemeral=True)
 
-# --- 4. ระบบจัดการการย้าย (จุดเชื่อมต่อสำคัญ) ---
 @bot.event
 async def on_voice_state_update(member, before, after):
     global normal_trigger_id
     
-    # 🚨 ส่งไปให้ main2 ทำงาน (สุ่มหาคนออนไลน์)
+    # ส่งไปให้ระบบสุ่มหาคนออนไลน์ (main2) ทำงาน
     await main2.handle_online_random(member, after, normal_trigger_id)
     
-    # ระบบสุ่มทั่วไป (ใน main)
+    # ระบบสุ่มทั่วไป (Main)
     if after.channel and after.channel.id == normal_trigger_id and not member.bot:
-        all_channels = [
-            vc for vc in member.guild.voice_channels 
-            if vc.id not in [normal_trigger_id, main2.online_trigger_id] 
-            and (vc.user_limit == 0 or len(vc.members) < vc.user_limit)
-        ]
+        available_channels = []
+        for vc in member.guild.voice_channels:
+            # ไม่ใช่ห้องสุ่มเอง
+            if vc.id not in [normal_trigger_id, main2.online_trigger_id]:
+                # 🛡️ เช็กสิทธิ์: คนต้องเข้าได้ และบอทต้องเห็น
+                user_perms = vc.permissions_for(member)
+                bot_perms = vc.permissions_for(member.guild.me)
+
+                if user_perms.view_channel and user_perms.connect and bot_perms.view_channel:
+                    if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
+                        available_channels.append(vc)
         
-        if all_channels:
-            target = random.choice(all_channels)
+        if available_channels:
+            target = random.choice(available_channels)
             try:
                 await member.move_to(target)
-                print(f"✅ ย้าย {member.name} ไปห้อง {target.name}")
-            except Exception as e:
-                print(f"❌ ย้ายไม่ได้ (Main): {e}")
+                print(f"✅ Main: ย้าย {member.name} ไป {target.name}")
+            except: pass
 
 if TOKEN:
     keep_alive()
