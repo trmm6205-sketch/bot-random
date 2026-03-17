@@ -2,19 +2,15 @@ import discord
 import random
 from discord import app_commands
 
-# ตัวแปรเก็บ ID ห้องสุ่มหาคนออน
 online_trigger_id = None
 
-# ฟังก์ชันเพิ่มคำสั่งเข้าไปในบอทหลัก
 def setup_online_commands(tree: app_commands.CommandTree):
-    
     @tree.command(name="create_room_online", description="สร้างห้องสุ่มหาเพื่อนที่มีคนอยู่")
     async def create_room_online(interaction: discord.Interaction):
         global online_trigger_id
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("❌ เฉพาะแอดมินเท่านั้น", ephemeral=True)
             return
-
         try:
             channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มไปหาเพื่อน")
             online_trigger_id = channel.id
@@ -22,11 +18,10 @@ def setup_online_commands(tree: app_commands.CommandTree):
         except Exception as e:
             await interaction.response.send_message(f"❌ เกิดข้อผิดพลาด: {e}", ephemeral=True)
 
-# ฟังก์ชันจัดการการย้าย (เรียกใช้จาก main.py)
 async def handle_online_random(member, after, normal_id):
     global online_trigger_id
     if after.channel and after.channel.id == online_trigger_id and not member.bot:
-        # หาห้องที่มีคนออนและไม่เต็ม
+        # 1. พยายามหาห้องที่มีคนออนอยู่ก่อน
         available = [
             vc for vc in member.guild.voice_channels 
             if vc.id not in [normal_id, online_trigger_id] 
@@ -34,18 +29,25 @@ async def handle_online_random(member, after, normal_id):
             and (vc.user_limit == 0 or len(vc.members) < vc.user_limit)
         ]
         
-        # ถ้าไม่มีคนออนเลย ให้สุ่มห้องว่างแทน
-        if not available:
-            available = [
-                vc for vc in member.guild.voice_channels 
-                if vc.id not in [normal_id, online_trigger_id]
-                and (vc.user_limit == 0 or len(vc.members) < vc.user_limit)
-            ]
-
+        # 2. ถ้าเจอห้องที่มีคนออน ให้ย้ายไป
         if available:
             target = random.choice(available)
             try:
                 await member.move_to(target)
-                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.name}** สุ่มมาหาเพื่อนที่ห้องนี้ครับ!")
+                await target.send(f"ผู้ใช้ชื่อ **{member.name}** สุ่มมาหาเพื่อนที่ห้องนี้ครับ!")
             except:
                 pass
+        
+        # 3. 🚨 ถ้าไม่มีคนออนเลย หรือห้องเต็มหมด (เตะออก)
+        else:
+            try:
+                # ย้ายไปที่ None คือการเตะออกจากห้องเสียง
+                await member.move_to(None)
+                
+                # ส่งข้อความเตือน (เลือกส่งไปใน DM ของคนนั้น หรือ Log ในเซิร์ฟ)
+                print(f"⚠️ เตะ {member.name} เพราะไม่มีห้องที่มีคนออนไลน์")
+                
+                # ถ้าอยากให้บอทส่งข้อความบอกเขาในแชท ให้เปิดคอมเมนต์ด้านล่างนี้ครับ
+                # await member.send("ขออภัยครับ ตอนนี้ไม่มีเพื่อนออนไลน์ในห้องอื่นเลย ผมจึงต้องเชิญคุณออกจากห้องสุ่มครับ")
+            except Exception as e:
+                print(f"❌ Kick Error: {e}")
