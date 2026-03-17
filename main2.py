@@ -22,29 +22,35 @@ async def handle_online_random(member, after, normal_id):
     global online_trigger_id
     if after.channel and after.channel.id == online_trigger_id and not member.bot:
         
-        # ค้นหาห้องทั้งหมดในเซิร์ฟเวอร์
+        print(f"🔍 {member.name} กำลังหาเพื่อนสุ่ม...")
+
         available = []
         for vc in member.guild.voice_channels:
-            # เงื่อนไข: ไม่ใช่ห้องสุ่มเอง และ ต้องมีคนอื่นนั่งอยู่ (len > 0)
+            # เงื่อนไขหลัก: 
+            # 1. ไม่ใช่ห้องสุ่มเอง 
+            # 2. ต้องมีคนออนอยู่ 
+            # 3. ห้องต้องไม่เต็ม
             if vc.id not in [normal_id, online_trigger_id] and len(vc.members) > 0:
-                # เช็กสิทธิ์บอท: บอทต้อง "มองเห็น" และ "เข้าได้"
-                bot_perms = vc.permissions_for(member.guild.me)
-                if bot_perms.view_channel and bot_perms.connect:
-                    # เช็กว่าห้องไม่เต็ม
-                    if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
-                        available.append(vc)
+                if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
+                    
+                    # --- 🛡️ ระบบกันห้องล็อค (สำคัญมาก) ---
+                    # เช็กว่า "User คนที่สุ่ม" มีสิทธิ์ Connect (เข้า) และ View (เห็น) ห้องนั้นหรือไม่
+                    user_perms = vc.permissions_for(member)
+                    
+                    # เช็กสิทธิ์ของ "บอท" ด้วย (ถ้าบอทมองไม่เห็นหรือเข้าไม่ได้ ก็จะย้ายไม่ได้)
+                    bot_perms = vc.permissions_for(member.guild.me)
 
-        # รายงานจำนวนห้องที่บอท 'มองเห็น' ลงใน Render Log
-        print(f"DEBUG: บอทมองเห็นห้องที่มีคนอยู่ {len(available)} ห้อง")
+                    if user_perms.connect and user_perms.view_channel and bot_perms.view_channel:
+                        available.append(vc)
 
         if available:
             target = random.choice(available)
             try:
                 await member.move_to(target)
-                await target.send(f"ผู้ใช้ชื่อ **{member.name}** สุ่มมาหาเพื่อนที่ห้องนี้ครับ!")
+                print(f"✅ สุ่มสำเร็จ! ย้าย {member.name} ไปหาเพื่อนที่ห้อง {target.name}")
             except Exception as e:
                 print(f"❌ ย้ายไม่ได้: {e}")
         else:
-            # ถ้ามันยังเตะออก แสดงว่า available เป็น 0 (บอทมองไม่เห็นห้องที่มีคน)
-            print(f"⚠️ หาห้องที่มีคนออนไม่เจอ (หรือบอทมองไม่เห็น) บอทจะยังไม่เตะเพื่อให้คุณตรวจสอบ")
-            # await member.move_to(None) # ปิดการเตะไว้ก่อนเพื่อทดสอบ
+            # 🕊️ ไม่พบห้องที่เหมาะสม (ไม่มีคนออน/ห้องล็อคหมด) 
+            # เราจะไม่สั่งเตะออก (member.move_to(None)) เพื่อให้เขาค้างอยู่ในห้องสุ่มได้ตามที่นายต้องการ
+            print(f"ℹ️ ไม่พบห้องที่มีคนออนไลน์ที่ {member.name} สามารถเข้าได้ (ปล่อยให้อยู่ในห้องเดิม)")
