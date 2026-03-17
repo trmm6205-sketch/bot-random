@@ -22,25 +22,20 @@ async def handle_online_random(member, after, normal_id):
     global online_trigger_id
     if after.channel and after.channel.id == online_trigger_id and not member.bot:
         
-        # --- [ชั่วคราว] ปิดการเช็กยศเพื่อทดสอบระบบย้าย ---
-        # (ถ้ามั่นใจเรื่องยศแล้วค่อยกลับมาเปิดครับ)
-
+        # ค้นหาห้องทั้งหมดในเซิร์ฟเวอร์
         available = []
-        all_voice_channels = member.guild.voice_channels
-        
-        for vc in all_voice_channels:
-            # เงื่อนไข: ไม่ใช่ห้องสุ่มเอง และ ต้องมีคนอื่นนั่งอยู่
+        for vc in member.guild.voice_channels:
+            # เงื่อนไข: ไม่ใช่ห้องสุ่มเอง และ ต้องมีคนอื่นนั่งอยู่ (len > 0)
             if vc.id not in [normal_id, online_trigger_id] and len(vc.members) > 0:
-                
-                # เช็กสิทธิ์บอทแบบพื้นฐานที่สุด
+                # เช็กสิทธิ์บอท: บอทต้อง "มองเห็น" และ "เข้าได้"
                 bot_perms = vc.permissions_for(member.guild.me)
                 if bot_perms.view_channel and bot_perms.connect:
                     # เช็กว่าห้องไม่เต็ม
                     if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
                         available.append(vc)
 
-        # ดูใน Logs ของ Render ว่าบอทเจอห้องกี่ห้อง
-        print(f"DEBUG: เจอห้องที่มีคนและบอทเข้าได้ทั้งหมด {len(available)} ห้อง")
+        # รายงานจำนวนห้องที่บอท 'มองเห็น' ลงใน Render Log
+        print(f"DEBUG: บอทมองเห็นห้องที่มีคนอยู่ {len(available)} ห้อง")
 
         if available:
             target = random.choice(available)
@@ -50,6 +45,6 @@ async def handle_online_random(member, after, normal_id):
             except Exception as e:
                 print(f"❌ ย้ายไม่ได้: {e}")
         else:
-            # ถ้ายังหาไม่เจอ อย่าเพิ่งเตะออก ให้แค่ Print บอกใน Logs
-            print(f"⚠️ {member.name} โดดลงห้องสุ่ม แต่บอทหาห้องที่มีคนออนไลน์ไม่เจอเลย")
-            # await member.move_to(None) # ปิดไว้ก่อน จะได้ไม่โดนเตะมั่ว
+            # ถ้ามันยังเตะออก แสดงว่า available เป็น 0 (บอทมองไม่เห็นห้องที่มีคน)
+            print(f"⚠️ หาห้องที่มีคนออนไม่เจอ (หรือบอทมองไม่เห็น) บอทจะยังไม่เตะเพื่อให้คุณตรวจสอบ")
+            # await member.move_to(None) # ปิดการเตะไว้ก่อนเพื่อทดสอบ
