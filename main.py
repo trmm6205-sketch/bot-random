@@ -1,17 +1,17 @@
 import discord
 import random
 import os
-import main2
+import main2  # ต้องมีบรรทัดนี้เพื่อดึงไฟล์ที่สองมาใช้
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- 1. ระบบ Keep Alive สำหรับ Render ---
+# --- 1. ระบบ Keep Alive (สำหรับ Render) ---
 app = Flask('')
 @app.route('/')
-def home(): return "KHMER CLUB Bot is Online!"
+def home(): return "Bot is Online!"
 
 def run():
     port = int(os.environ.get("PORT", 10000))
@@ -35,7 +35,7 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # โหลดคำสั่งจาก main2
+        # โหลดคำสั่ง Slash Command จาก main2
         main2.setup_online_commands(self.tree)
         try:
             synced = await self.tree.sync()
@@ -48,42 +48,45 @@ normal_trigger_id = None
 
 @bot.event
 async def on_ready():
-    print(f"✅ บอท {bot.user} ออนไลน์ในเขมรคลับแล้ว!")
+    print(f"✅ บอท {bot.user} พร้อมลุยในเขมรคลับแล้ว!")
 
-# --- 3. คำสั่งสร้างห้องสุ่มทั่วไป ---
+# --- 3. คำสั่งสร้างห้องสุ่มทั่วไป (Main) ---
 @bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้ายปกติ")
 async def create_room(interaction: discord.Interaction):
     global normal_trigger_id
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ เฉพาะแอดมินเท่านั้น", ephemeral=True)
         return
-    channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
-    normal_trigger_id = channel.id
-    await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
+    try:
+        channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
+        normal_trigger_id = channel.id
+        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ สร้างไม่สำเร็จ: {e}", ephemeral=True)
 
-# --- 4. ระบบจัดการการย้าย ---
+# --- 4. ระบบจัดการการย้าย (จุดเชื่อมต่อสำคัญ) ---
 @bot.event
 async def on_voice_state_update(member, before, after):
     global normal_trigger_id
     
-    # ส่งให้ main2 เช็ก (สุ่มหาคนออน)
+    # 🚨 ส่งไปให้ main2 ทำงาน (สุ่มหาคนออนไลน์)
     await main2.handle_online_random(member, after, normal_trigger_id)
     
-    # ระบบสุ่มปกติ (ใน main)
+    # ระบบสุ่มทั่วไป (ใน main)
     if after.channel and after.channel.id == normal_trigger_id and not member.bot:
         all_channels = [
             vc for vc in member.guild.voice_channels 
             if vc.id not in [normal_trigger_id, main2.online_trigger_id] 
             and (vc.user_limit == 0 or len(vc.members) < vc.user_limit)
-            and vc.permissions_for(member.guild.me).connect # บอทต้องเข้าได้
-            and vc.permissions_for(member).connect           # User ต้องเข้าได้
         ]
+        
         if all_channels:
             target = random.choice(all_channels)
             try:
                 await member.move_to(target)
-                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.name}** สุ่มห้องลงมาที่นี่ครับ")
-            except: pass
+                print(f"✅ ย้าย {member.name} ไปห้อง {target.name}")
+            except Exception as e:
+                print(f"❌ ย้ายไม่ได้ (Main): {e}")
 
 if TOKEN:
     keep_alive()
