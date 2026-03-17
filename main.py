@@ -90,5 +90,8 @@ async def on_voice_state_update(member, before, after):
         
         if all_channels:
             target = random.choice(all_channels)
-            try:
-                await member.move_to(target)
+            try: # <--- ต้องตรงกับแนว target
+                await member.move_to(target) # <--- ต้องเยื้องเข้าไปจาก try
+                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.name}** สุ่มห้องลงมาที่นี่ครับ")
+            except Exception as e:
+                print(f"❌ ไม่สามารถย้ายได้: {e}")
