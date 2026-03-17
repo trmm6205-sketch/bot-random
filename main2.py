@@ -2,6 +2,7 @@ import discord
 import random
 from discord import app_commands
 
+# ตัวแปรเก็บ ID ห้องสุ่มหาคนออน
 online_trigger_id = None
 
 def setup_online_commands(tree: app_commands.CommandTree):
@@ -21,15 +22,29 @@ def setup_online_commands(tree: app_commands.CommandTree):
 async def handle_online_random(member, after, normal_id):
     global online_trigger_id
     if after.channel and after.channel.id == online_trigger_id and not member.bot:
-        # 1. พยายามหาห้องที่มีคนออนอยู่ก่อน
+        
+        # --- 1. เช็กยศคนใช้งาน (เปลี่ยนชื่อยศให้ตรงกับในเซิร์ฟนาย) ---
+        allowed_role = discord.utils.get(member.roles, name="ชื่อยศที่ต้องการ") 
+        
+        if not allowed_role:
+            try:
+                await member.move_to(None)
+                print(f"🚫 เตะ {member.name} เพราะไม่มียศที่กำหนด")
+                return
+            except:
+                return
+
+        # --- 2. คัดกรองห้องที่สุ่มไปได้ ---
         available = [
             vc for vc in member.guild.voice_channels 
             if vc.id not in [normal_id, online_trigger_id] 
-            and len(vc.members) > 0 
-            and (vc.user_limit == 0 or len(vc.members) < vc.user_limit)
+            and len(vc.members) > 0  # ต้องมีคนออนอยู่
+            and (vc.user_limit == 0 or len(vc.members) < vc.user_limit) # ห้องไม่เต็ม
+            and vc.permissions_for(member).connect  # <--- นายต้องมีสิทธิ์เข้าได้
+            and vc.permissions_for(member).view_channel # <--- นายต้องมองเห็นห้องนั้น
         ]
         
-        # 2. ถ้าเจอห้องที่มีคนออน ให้ย้ายไป
+        # --- 3. ดำเนินการย้ายหรือเตะออก ---
         if available:
             target = random.choice(available)
             try:
@@ -37,17 +52,10 @@ async def handle_online_random(member, after, normal_id):
                 await target.send(f"ผู้ใช้ชื่อ **{member.name}** สุ่มมาหาเพื่อนที่ห้องนี้ครับ!")
             except:
                 pass
-        
-        # 3. 🚨 ถ้าไม่มีคนออนเลย หรือห้องเต็มหมด (เตะออก)
         else:
+            # ถ้าหาห้องที่มีคนออนไม่ได้เลย หรือห้องที่มีคนดันล็อค/เต็มหมด ให้ดีดออก
             try:
-                # ย้ายไปที่ None คือการเตะออกจากห้องเสียง
                 await member.move_to(None)
-                
-                # ส่งข้อความเตือน (เลือกส่งไปใน DM ของคนนั้น หรือ Log ในเซิร์ฟ)
-                print(f"⚠️ เตะ {member.name} เพราะไม่มีห้องที่มีคนออนไลน์")
-                
-                # ถ้าอยากให้บอทส่งข้อความบอกเขาในแชท ให้เปิดคอมเมนต์ด้านล่างนี้ครับ
-                # await member.send("ขออภัยครับ ตอนนี้ไม่มีเพื่อนออนไลน์ในห้องอื่นเลย ผมจึงต้องเชิญคุณออกจากห้องสุ่มครับ")
-            except Exception as e:
-                print(f"❌ Kick Error: {e}")
+                print(f"⚠️ เตะ {member.name} เพราะไม่มีห้องที่เหมาะสม (ไม่มีคนออน/ห้องล็อค/ห้องเต็ม)")
+            except:
+                pass
