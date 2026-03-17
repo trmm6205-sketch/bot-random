@@ -23,26 +23,30 @@ async def handle_online_random(member, after, normal_id):
     global online_trigger_id
     if after.channel and after.channel.id == online_trigger_id and not member.bot:
         
-        # --- 1. เช็กยศคนใช้งาน (เปลี่ยนชื่อยศให้ตรงกับในเซิร์ฟนาย) ---
-        allowed_role = discord.utils.get(member.roles, name="ชื่อยศที่ต้องการ") 
+        # --- 1. เช็กยศคนใช้งาน (เปลี่ยน 'Member' เป็นชื่อยศในเซิร์ฟนาย) ---
+        allowed_role = discord.utils.get(member.roles, name="Member") 
         
         if not allowed_role:
             try:
                 await member.move_to(None)
                 print(f"🚫 เตะ {member.name} เพราะไม่มียศที่กำหนด")
                 return
-            except:
-                return
+            except: return
 
-        # --- 2. คัดกรองห้องที่สุ่มไปได้ ---
-        available = [
-            vc for vc in member.guild.voice_channels 
-            if vc.id not in [normal_id, online_trigger_id] 
-            and len(vc.members) > 0  # ต้องมีคนออนอยู่
-            and (vc.user_limit == 0 or len(vc.members) < vc.user_limit) # ห้องไม่เต็ม
-            and vc.permissions_for(member).connect  # <--- นายต้องมีสิทธิ์เข้าได้
-            and vc.permissions_for(member).view_channel # <--- นายต้องมองเห็นห้องนั้น
-        ]
+        # --- 2. คัดกรองห้อง (เช็กสิทธิ์แบบละเอียด) ---
+        available = []
+        for vc in member.guild.voice_channels:
+            # ไม่ใช่ห้องสุ่มเอง และต้องมีคนออนอยู่
+            if vc.id not in [normal_id, online_trigger_id] and len(vc.members) > 0:
+                # ห้องต้องไม่เต็ม
+                if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
+                    
+                    # เช็กว่า "บอท" และ "User" มองเห็นและเข้าห้องนั้นได้จริงไหม
+                    bot_perms = vc.permissions_for(member.guild.me)
+                    user_perms = vc.permissions_for(member)
+                    
+                    if bot_perms.connect and bot_perms.view_channel and user_perms.connect:
+                        available.append(vc)
         
         # --- 3. ดำเนินการย้ายหรือเตะออก ---
         if available:
@@ -50,12 +54,9 @@ async def handle_online_random(member, after, normal_id):
             try:
                 await member.move_to(target)
                 await target.send(f"ผู้ใช้ชื่อ **{member.name}** สุ่มมาหาเพื่อนที่ห้องนี้ครับ!")
-            except:
-                pass
+            except: pass
         else:
-            # ถ้าหาห้องที่มีคนออนไม่ได้เลย หรือห้องที่มีคนดันล็อค/เต็มหมด ให้ดีดออก
             try:
                 await member.move_to(None)
-                print(f"⚠️ เตะ {member.name} เพราะไม่มีห้องที่เหมาะสม (ไม่มีคนออน/ห้องล็อค/ห้องเต็ม)")
-            except:
-                pass
+                print(f"⚠️ เตะ {member.name} เพราะหาห้องที่มีคนออนไม่เจอ (หรือบอทไม่มีสิทธิ์เข้า)")
+            except: pass
