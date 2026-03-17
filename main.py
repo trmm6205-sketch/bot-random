@@ -38,7 +38,7 @@ class MyBot(commands.Bot):
         main2.setup_online_commands(self.tree)
         try:
             await self.tree.sync()
-            print("✅ ซิงค์คำสั่ง Slash Commands สำเร็จ!")
+            print("✅ ซิงค์คำสั่งสำเร็จ!")
         except Exception as e:
             print(f"❌ Sync Error: {e}")
 
@@ -47,7 +47,7 @@ normal_trigger_id = None
 
 @bot.event
 async def on_ready():
-    print(f"✅ บอท {bot.user} พร้อมลุยในเขมรคลับ!")
+    print(f"✅ บอท {bot.user} พร้อมลุย!")
 
 @bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้ายปกติ")
 async def create_room(interaction: discord.Interaction):
@@ -60,7 +60,7 @@ async def create_room(interaction: discord.Interaction):
         normal_trigger_id = channel.id
         await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
     except Exception as e:
-        await interaction.response.send_message(f"❌ สร้างไม่สำเร็จ: {e}", ephemeral=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
@@ -74,7 +74,6 @@ async def on_voice_state_update(member, before, after):
         available_channels = []
         for vc in member.guild.voice_channels:
             if vc.id not in [normal_trigger_id, main2.online_trigger_id]:
-                # เช็กสิทธิ์การเข้าถึง
                 user_perms = vc.permissions_for(member)
                 bot_perms = vc.permissions_for(member.guild.me)
 
@@ -86,8 +85,8 @@ async def on_voice_state_update(member, before, after):
             target = random.choice(available_channels)
             try:
                 await member.move_to(target)
-                # 📢 ส่งข้อความแจ้งเตือนลงในแชทของห้องเสียงที่สุ่มได้
-                await target.send(f"🎲 ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มห้องมาครับ")
+                # 📢 ส่งข้อความเข้าแชทของห้องเสียงที่สุ่มได้ (Voice Chat)
+                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** สุ่มห้องลงมาที่นี่ครับ")
             except:
                 pass
 

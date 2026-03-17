@@ -16,7 +16,7 @@ def setup_online_commands(tree: app_commands.CommandTree):
             online_trigger_id = channel.id
             await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ เกิดข้อผิดพลาด: {e}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 async def handle_online_random(member, after, normal_id):
     global online_trigger_id
@@ -24,7 +24,6 @@ async def handle_online_random(member, after, normal_id):
     if after.channel and after.channel.id == online_trigger_id and not member.bot:
         available = []
         for vc in member.guild.voice_channels:
-            # ต้องมีคนอยู่ และไม่ใช่ห้องสุ่มเอง
             if vc.id not in [normal_id, online_trigger_id] and len(vc.members) > 0:
                 user_perms = vc.permissions_for(member)
                 bot_perms = vc.permissions_for(member.guild.me)
@@ -37,13 +36,13 @@ async def handle_online_random(member, after, normal_id):
             target = random.choice(available)
             try:
                 await member.move_to(target)
-                # 📢 ส่งข้อความแจ้งเตือนลงในแชทของห้องเสียงที่สุ่มได้
-                await target.send(f"👥 ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มมาครับ")
+                # 📢 ส่งข้อความเข้าแชทของห้องเสียงที่สุ่มได้ (Voice Chat)
+                await target.send(f"ผู้ใช้บัญชีชื่อ **{member.display_name}** สุ่มหาเพื่อนและลงมาที่นี่ครับ")
             except:
                 pass
         else:
-            # ถ้าหาห้องไม่เจอ ให้บอกในแชทห้องสุ่มนั้นเลย
             try:
-                await after.channel.send(f"⚠️ **{member.display_name}** ไม่พบห้องที่มีคนออนไลน์ให้สุ่มไปหาครับ")
+                # ถ้าหาไม่เจอ บอกในแชทห้องต้นทาง
+                await after.channel.send(f"⚠️ **{member.display_name}** ไม่พบห้องที่มีคนออนไลน์ครับ")
             except:
                 pass
