@@ -4,8 +4,26 @@ import os
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
+from flask import Flask
+from threading import Thread
 
-# --- 1. โหลดค่า TOKEN ---
+# --- 1. ระบบ Keep Alive สำหรับ Render (ป้องกัน Timed Out) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "KHMER CLUB Bot is Online!"
+
+def run():
+    # ใช้พอร์ตที่ Render กำหนดมาให้ (Default: 10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# --- 2. ตั้งค่าบอท ---
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -20,7 +38,7 @@ class MyBot(commands.Bot):
 
     async def setup_hook(self):
         try:
-            # บังคับซิงค์คำสั่งเพื่อให้ Discord อัปเดตการเช็กสิทธิ์ใหม่
+            # บังคับซิงค์คำสั่ง Slash ใหม่ทุกครั้ง
             synced = await self.tree.sync()
             print(f"✅ ซิงค์คำสั่ง Slash สำเร็จ! (พบ {len(synced)} คำสั่ง)")
         except Exception as e:
@@ -31,33 +49,30 @@ random_trigger_channel_id = None
 
 @bot.event
 async def on_ready():
-    print(f"✅ บอท {bot.user} พร้อมรบแล้ว!")
-    print(f"ระบบ: เช็กสิทธิ์ Administrator เปิดใช้งาน")
+    print(f"✅ บอท {bot.user} ออนไลน์ในเขมรคลับแล้ว!")
     print("---------------------------------")
 
-# --- 2. คำสั่งสร้างห้องสุ่ม (ล็อคเฉพาะแอดมิน) ---
-@bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้าย (เฉพาะแอดมิน)")
+# --- 3. คำสั่งสร้างห้องสุ่ม (ล็อคเฉพาะแอดมิน) ---
+@bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้าย (เฉพาะแอดมินเท่านั้น)")
 async def create_room(interaction: discord.Interaction):
     global random_trigger_channel_id
     
-    # 🚨 เช็กสิทธิ์แบบละเอียด: ถ้าไม่ใช่ Administrator ให้หยุดทันที
+    # 🚨 ตรวจสอบสิทธิ์แอดมิน
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message(
             "❌ ขออภัยครับ คุณไม่สามารถใช้คำสั่งนี้ได้ (เฉพาะผู้ดูแลระบบที่มีสิทธิ์แอดมินเท่านั้น)", 
-            ephemeral=True # คนอื่นจะไม่เห็นข้อความนี้
+            ephemeral=True
         )
         return
 
-    # --- ส่วนที่เหลือนี้จะมีแค่แอดมินเท่านั้นที่ผ่านเข้ามาได้ ---
     try:
         channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
         random_trigger_channel_id = channel.id
         await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ! พร้อมใช้งานแล้ว", ephemeral=True)
-        print(f"📢 แอดมิน {interaction.user.name} ได้สร้างห้องสุ่มใหม่")
     except Exception as e:
         await interaction.response.send_message(f"❌ เกิดข้อผิดพลาด: {e}", ephemeral=True)
 
-# --- 3. ระบบสุ่มย้าย (คนทั่วไปเดินเข้าห้องแล้วเด้งสุ่มได้ปกติ) ---
+# --- 4. ระบบสุ่มย้ายคน (ทำงานปกติสำหรับทุกคน) ---
 @bot.event
 async def on_voice_state_update(member, before, after):
     global random_trigger_channel_id
@@ -74,12 +89,12 @@ async def on_voice_state_update(member, before, after):
                 await member.move_to(target)
                 message = f"ผู้ใช้บัญชีชื่อ **{member.name}** นี้สุ่มห้องมา"
                 await target.send(message)
-                print(f"🎲 ย้ายคุณ {member.name} ไปยัง {target.name}")
             except Exception as e:
-                print(f"❌ ย้ายไม่ได้: {e}")
+                print(f"❌ ไม่สามารถย้ายได้: {e}")
 
-# --- 4. เริ่มทำงานบอท ---
+# --- 5. เริ่มทำงาน ---
 if TOKEN:
+    keep_alive() # เริ่มระบบ Keep Alive ก่อนรันบอท
     bot.run(TOKEN)
 else:
-    print("❌ ERROR: ไม่พบ DISCORD_TOKEN เช็กใน Render หรือ .env ด่วน!")
+    print("❌ ไม่พบ TOKEN ในไฟล์ .env หรือ Environment Variable!")
