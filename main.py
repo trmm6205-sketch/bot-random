@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-# --- ระบบ Keep Alive สำหรับ Render ---
+# --- ระบบ Keep Alive ---
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is Online!"
@@ -21,7 +21,6 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- ตั้งค่าบอท ---
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -38,47 +37,46 @@ class MyBot(commands.Bot):
         main2.setup_online_commands(self.tree)
         try:
             await self.tree.sync()
-            print("✅ ซิงค์คำสั่ง Slash Commands สำเร็จ!")
+            print("✅ ซิงค์คำสั่งสำเร็จ!")
         except Exception as e:
             print(f"❌ Sync Error: {e}")
 
 bot = MyBot()
 normal_trigger_id = None 
+main_log_channel = None # ตัวแปรเก็บห้องแชทสำหรับแจ้งเตือนของ main
 
 @bot.event
 async def on_ready():
-    print(f"✅ บอท {bot.user} พร้อมลุยในเขมรคลับแล้ว!")
+    print(f"✅ บอท {bot.user} พร้อมลุย!")
 
 @bot.tree.command(name="create_room", description="สร้างห้องสุ่มย้ายปกติ")
 async def create_room(interaction: discord.Interaction):
-    global normal_trigger_id
+    global normal_trigger_id, main_log_channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ เฉพาะแอดมินเท่านั้น", ephemeral=True)
         return
     try:
         channel = await interaction.guild.create_voice_channel(name="🎲 สุ่มห้องลง")
         normal_trigger_id = channel.id
-        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
+        main_log_channel = interaction.channel # จำห้องที่ใช้คำสั่งไว้แจ้งเตือน
+        await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ! (แจ้งเตือนที่นี่)")
     except Exception as e:
-        await interaction.response.send_message(f"❌ สร้างไม่สำเร็จ: {e}", ephemeral=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    global normal_trigger_id
+    global normal_trigger_id, main_log_channel
     
-    # ส่งไปให้ระบบสุ่มหาคนออนไลน์ (main2) ทำงาน
+    # ส่งไปให้ main2 ทำงาน
     await main2.handle_online_random(member, after, normal_trigger_id)
     
     # ระบบสุ่มทั่วไป (Main)
     if after.channel and after.channel.id == normal_trigger_id and not member.bot:
         available_channels = []
         for vc in member.guild.voice_channels:
-            # ไม่ใช่ห้องสุ่มเอง
             if vc.id not in [normal_trigger_id, main2.online_trigger_id]:
-                # 🛡️ เช็กสิทธิ์: คนต้องเข้าได้ และบอทต้องเห็น
                 user_perms = vc.permissions_for(member)
                 bot_perms = vc.permissions_for(member.guild.me)
-
                 if user_perms.view_channel and user_perms.connect and bot_perms.view_channel:
                     if vc.user_limit == 0 or len(vc.members) < vc.user_limit:
                         available_channels.append(vc)
@@ -87,8 +85,12 @@ async def on_voice_state_update(member, before, after):
             target = random.choice(available_channels)
             try:
                 await member.move_to(target)
-                print(f"✅ Main: ย้าย {member.name} ไป {target.name}")
+                if main_log_channel:
+                    await main_log_channel.send(f"🎲 ผู้ใช้บัญชีชื่อ **{member.display_name}** ได้ทำการสุ่มมาครับ (ลงห้อง: {target.name})")
             except: pass
+        else:
+            if main_log_channel:
+                await main_log_channel.send(f"⚠️ **{member.display_name}** สุ่มไม่สำเร็จเนื่องจากไม่มีห้องว่างที่เข้าได้ครับ")
 
 if TOKEN:
     keep_alive()
