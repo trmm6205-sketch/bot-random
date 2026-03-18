@@ -5,7 +5,7 @@ from discord import app_commands
 online_trigger_id = None
 
 def setup_online_commands(tree: app_commands.CommandTree):
-    @tree.command(name="create_room_online", description="สร้างห้องสุ่มหาเพื่อนที่มีคนอยู่")
+    @tree.command(name="create_room_online", description="สร้างห้องสุ่มหาเพื่อนและให้บอทเฝ้า")
     async def create_room_online(interaction: discord.Interaction):
         global online_trigger_id
         if not interaction.user.guild_permissions.administrator:
@@ -14,7 +14,11 @@ def setup_online_commands(tree: app_commands.CommandTree):
         try:
             channel = await interaction.guild.create_voice_channel(name="👥 สุ่มหาเพื่อน")
             online_trigger_id = channel.id
-            await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} สำเร็จ!", ephemeral=True)
+            
+            # สั่งบอทเข้าห้องนี้ด้วย (ถ้าบอทไม่ได้ติดสายห้องอื่นอยู่)
+            await channel.connect()
+            
+            await interaction.response.send_message(f"✅ สร้างห้อง {channel.mention} และบอทเข้าเฝ้าแล้ว!", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
